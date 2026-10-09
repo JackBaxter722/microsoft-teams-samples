@@ -60,6 +60,7 @@ function mapResource(row: InventoryRow): InventoryResource | undefined {
 export async function queryInventory(
   accessToken: string,
   skipToken?: string,
+  resourceId?: string,
   request: typeof fetch = fetch
 ): Promise<InventoryPage> {
   const options: { Top: number; Skip?: number; SkipToken?: string } = {
@@ -71,6 +72,28 @@ export async function queryInventory(
     options.SkipToken = "";
   }
 
+  const clauses: Array<Record<string, unknown>> = [];
+  if (resourceId) {
+    clauses.push({
+      $type: "where",
+      FieldName: "name",
+      Operator: "==",
+      Values: [`'${resourceId.replaceAll("'", "''")}'`]
+    });
+  }
+  clauses.push({
+    $type: "project",
+    FieldList: [
+      "name",
+      "type",
+      "properties.displayName",
+      "properties.environmentId",
+      "properties.ownerId",
+      "properties.createdAt",
+      "properties.lastModifiedAt"
+    ]
+  });
+
   const response = await request(INVENTORY_URL, {
     method: "POST",
     headers: {
@@ -80,20 +103,7 @@ export async function queryInventory(
     body: JSON.stringify({
       TableName: "PowerPlatformResources",
       Options: options,
-      Clauses: [
-        {
-          $type: "project",
-          FieldList: [
-            "name",
-            "type",
-            "properties.displayName",
-            "properties.environmentId",
-            "properties.ownerId",
-            "properties.createdAt",
-            "properties.lastModifiedAt"
-          ]
-        }
-      ]
+      Clauses: clauses
     })
   });
 
