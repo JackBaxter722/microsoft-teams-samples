@@ -1,0 +1,31 @@
+{
+  "name": "power-platform-coe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists .env index.ts",
+    "build": "tsc --noEmit && vite build",
+    "build:server": "tsc",
+    "build:web": "vite build",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^7.0.1",
+    "@fluentui/react-components": "^9.42.0",
+    "@microsoft/teams-js": "^2.34.0",
+    "@microsoft/teams.api": "^2.0.5",
+    "@microsoft/teams.apps": "^2.0.5",
+    "@microsoft/teams.cards": "^2.1.0",
+    "jose": "^6.2.12",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.4.4"
+  }
+}

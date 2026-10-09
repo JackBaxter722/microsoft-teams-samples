@@ -1,0 +1,129 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f5f5;
+  color: #242424;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header,
+.section-heading,
+.picker,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header,
+.section-heading {
+  justify-content: space-between;
+}
+
+.section {
+  margin: 24px 0;
+}
+
+.section h2 {
+  margin: 0 0 12px;
+}
+
+.notice,
+.alert {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: #fff4ce;
+}
+
+.success {
+  background: #dff6dd;
+}
+
+.alert {
+  background: #fde7e9;
+}
+
+.muted {
+  color: #616161;
+  font-size: 13px;
+}
+
+.resource-grid,
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.resource-card,
+.review-card {
+  min-width: 0;
+  padding: 12px;
+}
+
+.card-content {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+
+.review-chip {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.admin-form {
+  display: grid;
+  max-width: 680px;
+  gap: 16px;
+}
+
+.picker {
+  align-items: stretch;
+}
+
+.picker input {
+  flex: 1;
+}
+
+.actions {
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+select {
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #8a8886;
+  border-radius: 4px;
+  background: white;
+  font: inherit;
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 16px;
+  }
+
+  .resource-grid,
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .picker {
+    flex-direction: column;
+  }
+}
