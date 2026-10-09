@@ -97,7 +97,7 @@ export async function queryInventory(
   const response = await request(INVENTORY_URL, {
     method: "POST",
     headers: {
-      Authorization: `******
+      Authorization: "Bearer " + accessToken,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
