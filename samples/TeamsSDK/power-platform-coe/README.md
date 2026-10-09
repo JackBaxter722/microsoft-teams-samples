@@ -10,16 +10,17 @@ The sample uses the current Teams SDK, Fluent UI React components, Microsoft Tea
 
 - Administrators query resources visible to their delegated account, choose a maker, and send a proactive review card.
 - Makers can request a card of pending reviews from the bot, respond with Keep, Delete request, Reassign request, or Quarantine request, and query their visible resources in the personal tab.
-- The tab shows inventory results, lifecycle review labels, decisions and history. Search uses a Fluent UI combobox; reassignment uses Teams' people picker and asks for confirmation before recording the request.
+- The tab shows inventory results, lifecycle review labels, decisions and history. Search uses a Fluent UI combobox; reassignment uses the current TeamsJS `people.selectPeople` API and asks for confirmation before recording the request.
 - All review submissions are revalidated by the server and appended to a local sample data file. This file store is for local demonstration only; use a secured, durable database and retention policy in production.
 
 ## Inventory API and identity setup
 
-1. Create an Entra app registration for the Teams app and configure the Teams SSO resource/scope `access_as_user`. Set `TAB_AUDIENCE` to that API audience, typically `api://<tab-domain>/<client-id>`.
-2. Add the delegated Power Platform API permission `ResourceQuery.Resources.Read` and grant consent as required by your tenant.
+1. Create an Entra app registration for the Teams app. Under **Expose an API**, configure its Application ID URI for your HTTPS tab domain and app ID, add the delegated `access_as_user` scope, and authorize the Teams client applications for that scope. Set `TAB_AUDIENCE` to the same resource URI, typically `api://<tab-domain>/<client-id>`.
+2. Add the delegated Power Platform API permission `ResourceQuery.Resources.Read` to this app registration and grant consent as required by your tenant. The backend uses the signed-in user's SSO assertion for OBO; it does not use an app-only inventory token.
 3. Assign the signed-in administrators an Entra role supported by Inventory API. The API also applies its own tenant-role visibility restrictions. Set `ADMIN_USER_IDS` to the administrators' Entra object IDs for this sample's additional review-creation check.
-4. Register/provision the Teams bot with the Teams Developer CLI and configure `CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID`. The bot credentials are used only by the Teams SDK to send bot messages; inventory calls use on-behalf-of (OBO) tokens for the signed-in tab user.
-5. Copy `.env.TEMPLATE` to `.env` and set its values. Never commit `.env`.
+4. Configure the Teams app package with the bot ID and personal static tab URL `https://<tab-domain>/tabs/power-platform-coe`. Set `webApplicationInfo.id` to the Entra app ID and `webApplicationInfo.resource` to the Application ID URI from step 1; add the tab domain to `validDomains`.
+5. Sign in to the Teams Developer CLI and provision a Teams-managed bot for the tunnel endpoint. Use that bot registration's `CLIENT_ID`, `CLIENT_SECRET`, and `TENANT_ID` in the environment. The client secret is used by the Teams SDK and for OBO token exchange; inventory calls still carry the signed-in user's delegated identity.
+6. Copy `.env.TEMPLATE` to `.env` and set its values. Never commit `.env`.
 
 The backend obtains a Power Platform token through OBO for `https://api.powerplatform.com/.default` and calls:
 
@@ -36,15 +37,17 @@ cd samples/TeamsSDK/power-platform-coe/nodejs/power-platform-coe
 npm install
 cp .env.TEMPLATE .env
 # Configure the values described above.
+teams login
+teams app create --name "Power Platform COE" --teams-managed --endpoint https://<tab-domain>/api/messages --env .env
 npm run build
 npm start
 ```
 
-The app listens on port 3978. Provision/package the Teams app with the Teams Developer CLI and upload it to the tenant. Add the app to a personal chat, then open its **Power Platform COE** tab. Configure your tunnel and Teams app SSO resource consistently; the tab and API share the bot's HTTPS origin.
+The app listens on port 3978. Confirm the generated app package includes the personal static tab and SSO manifest fields described above, then package/upload it to the tenant. Add the app to a personal chat, then open its **Power Platform COE** tab. Configure your tunnel and Teams app SSO resource consistently; the tab and API share the bot's HTTPS origin.
 
 In the bot chat:
 
-- `resources` opens the tab for an inventory query.
+- `resources` directs you to the tab for an inventory query.
 - `reviews` returns your pending maker review cards.
 - `help` shows the available commands.
 

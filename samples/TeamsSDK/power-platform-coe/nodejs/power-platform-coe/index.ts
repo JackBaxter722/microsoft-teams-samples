@@ -7,15 +7,14 @@ import { queryInventory } from "./inventory.js";
 import { DECISIONS, ReviewStore, type Decision, type LifecycleStage } from "./reviews.js";
 
 const app = new App();
+const http = app.http;
+if (!http) throw new Error("The Teams SDK HTTP plugin is not configured.");
 const dataFile = process.env.DATA_FILE ?? "./data/reviews.json";
 const store = new ReviewStore(dataFile);
 const webDirectory = fileURLToPath(new URL("./web/dist", import.meta.url));
 const lifecycleStages: LifecycleStage[] = ["needs-review", "candidate-unused", "orphaned"];
 
-app.tab("power-platform-coe", webDirectory, {
-  name: "Power Platform COE",
-  scopes: ["personal"]
-});
+app.tab("power-platform-coe", webDirectory);
 
 function sendFailure(res: { status: (status: number) => { json: (body: object) => void } }, error: unknown) {
   if (error instanceof AuthenticationError) {
@@ -35,7 +34,7 @@ function bearerFrom(authorization?: string): string {
   return authorization.slice(7);
 }
 
-app.http.get("/api/session", async (req, res) => {
+http.get("/api/session", async (req, res) => {
   try {
     const user = await verifyUserToken(req.headers.authorization);
     res.json({ userId: user.oid, isAdministrator: isAdministrator(user.oid) });
@@ -44,7 +43,7 @@ app.http.get("/api/session", async (req, res) => {
   }
 });
 
-app.http.get("/api/resources", async (req, res) => {
+http.get("/api/resources", async (req, res) => {
   try {
     const user = await verifyUserToken(req.headers.authorization);
     const accessToken = await getPowerPlatformToken(bearerFrom(req.headers.authorization));
@@ -60,7 +59,7 @@ app.http.get("/api/resources", async (req, res) => {
   }
 });
 
-app.http.get("/api/reviews", async (req, res) => {
+http.get("/api/reviews", async (req, res) => {
   try {
     const user = await verifyUserToken(req.headers.authorization);
     const reviews = isAdministrator(user.oid) ? store.all() : store.forMaker(user.oid);
@@ -70,7 +69,7 @@ app.http.get("/api/reviews", async (req, res) => {
   }
 });
 
-app.http.post("/api/reviews", async (req, res) => {
+http.post("/api/reviews", async (req, res) => {
   try {
     const user = await verifyUserToken(req.headers.authorization);
     if (!isAdministrator(user.oid)) throw new Error("Forbidden");
@@ -129,7 +128,7 @@ app.http.post("/api/reviews", async (req, res) => {
   }
 });
 
-app.http.post("/api/reviews/:reviewId/decision", async (req, res) => {
+http.post("/api/reviews/:reviewId/decision", async (req, res) => {
   try {
     const user = await verifyUserToken(req.headers.authorization);
     const { decision, rationale, reassigneeId, reassigneeName } = req.body ?? {};
@@ -198,6 +197,14 @@ app.on("message", async ({ activity, send }) => {
 app.on("card.action", async ({ activity, send }) => {
   const userId = activity.from.aadObjectId;
   const actionData = (activity as any).value?.action?.data;
+  if (actionData?.decision === "reassign-request") {
+    await send("Open the Power Platform COE tab to select a proposed new owner and confirm your reassignment request.");
+    return {
+      statusCode: 200,
+      type: "application/vnd.microsoft.activity.message",
+      value: "Continue in the Power Platform COE tab."
+    } satisfies AdaptiveCardActionMessageResponse;
+  }
   if (!userId || actionData?.decision !== "keep" && actionData?.decision !== "delete-request" &&
       actionData?.decision !== "reassign-request" && actionData?.decision !== "quarantine-request") {
     await send("This review action is invalid. Open the Power Platform COE tab to review it.");

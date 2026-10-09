@@ -37,6 +37,7 @@ export function App({ token, teams }) {
   const [query, setQuery] = useState("");
   const [maker, setMaker] = useState(null);
   const [selectedResource, setSelectedResource] = useState("");
+  const [responseNotes, setResponseNotes] = useState({});
   const [stage, setStage] = useState("needs-review");
   const [rationale, setRationale] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,7 @@ export function App({ token, teams }) {
       const response = await fetch(path, {
         ...options,
         headers: {
-          Authorization: `******
+          Authorization: "Bearer " + token,
           "Content-Type": "application/json",
           ...options.headers
         }
@@ -95,7 +96,10 @@ export function App({ token, teams }) {
   }, [query, resources]);
 
   const resourceOptions = useMemo(
-    () => resources.map((resource) => `${resource.displayName} (${resource.type})`),
+    () => resources.map((resource) => ({
+      id: resource.id,
+      label: `${resource.displayName} (${resource.type})`
+    })),
     [resources]
   );
 
@@ -120,11 +124,14 @@ export function App({ token, teams }) {
         singleSelect: true
       });
       const person = people?.[0];
-      if (!person?.id) {
+      if (!person?.objectId) {
         setMaker(null);
         return;
       }
-      setMaker({ id: person.id, name: person.displayName || person.email || person.id });
+      setMaker({
+        id: person.objectId,
+        name: person.displayName || person.email || person.objectId
+      });
     } catch (pickerError) {
       setError(`Could not open the Teams people picker: ${pickerError.message}`);
     }
@@ -137,9 +144,7 @@ export function App({ token, teams }) {
     setError("");
     setNotice("");
     try {
-      const resource = resources.find(
-        (item) => `${item.displayName} (${item.type})` === selectedResource
-      );
+      const resource = resources.find((item) => item.id === selectedResource);
       if (!resource) throw new Error("Select a resource from the current inventory.");
       const result = await api("/api/reviews", {
         method: "POST",
@@ -172,8 +177,11 @@ export function App({ token, teams }) {
           singleSelect: true
         });
         const person = people?.[0];
-        if (!person?.id || person.id === session?.userId) return;
-        reassignee = { reassigneeId: person.id, reassigneeName: person.displayName || person.email };
+        if (!person?.objectId || person.objectId === session?.userId) return;
+        reassignee = {
+          reassigneeId: person.objectId,
+          reassigneeName: person.displayName || person.email
+        };
       } catch (pickerError) {
         setError(`Could not open the Teams people picker: ${pickerError.message}`);
         return;
@@ -191,7 +199,11 @@ export function App({ token, teams }) {
     try {
       await api(`/api/reviews/${encodeURIComponent(review.id)}/decision`, {
         method: "POST",
-        body: JSON.stringify({ decision, ...reassignee })
+        body: JSON.stringify({
+          decision,
+          rationale: responseNotes[review.id] || "",
+          ...reassignee
+        })
       });
       setNotice("Your response was recorded. No Power Platform resource was changed.");
       await refresh();
@@ -270,6 +282,7 @@ export function App({ token, teams }) {
                           <Text size={200} key={`${item.at}-${index}`}>
                             {decisionLabels[item.decision]} · {new Date(item.at).toLocaleString()}
                             {item.reassigneeName ? ` · proposed owner: ${item.reassigneeName}` : ""}
+                            {item.rationale ? ` · ${item.rationale}` : ""}
                           </Text>
                         ))}
                       </div>
@@ -301,21 +314,36 @@ export function App({ token, teams }) {
                     <Text size={200} key={`${decision.at}-${index}`}>
                       {decisionLabels[decision.decision]} · {new Date(decision.at).toLocaleString()}
                       {decision.reassigneeName ? ` · proposed owner: ${decision.reassigneeName}` : ""}
+                      {decision.rationale ? ` · ${decision.rationale}` : ""}
                     </Text>
                   ))}
-                  {review.status === "pending" && !session?.isAdministrator && (
-                    <div className="actions">
-                      {["keep", "delete-request", "reassign-request", "quarantine-request"].map((decision) => (
-                        <Button
-                          key={decision}
-                          appearance={decision === "keep" ? "primary" : "secondary"}
-                          disabled={busy}
-                          onClick={() => respond(review, decision)}
-                        >
-                          {decisionLabels[decision]}
-                        </Button>
-                      ))}
-                    </div>
+                  {review.status === "pending" && review.makerId === session?.userId && (
+                    <>
+                      <Field label="Response note (optional)">
+                        <Textarea
+                          value={responseNotes[review.id] || ""}
+                          maxLength={500}
+                          onChange={(event) =>
+                            setResponseNotes((current) => ({
+                              ...current,
+                              [review.id]: event.target.value
+                            }))
+                          }
+                        />
+                      </Field>
+                      <div className="actions">
+                        {["keep", "delete-request", "reassign-request", "quarantine-request"].map((decision) => (
+                          <Button
+                            key={decision}
+                            appearance={decision === "keep" ? "primary" : "secondary"}
+                            disabled={busy}
+                            onClick={() => respond(review, decision)}
+                          >
+                            {decisionLabels[decision]}
+                          </Button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               </Card>
@@ -335,9 +363,12 @@ export function App({ token, teams }) {
                     placeholder="Choose a resource"
                     value={selectedResource}
                     onOptionSelect={(_, data) => setSelectedResource(data.optionValue || "")}
-                    onChange={(event) => setSelectedResource(event.target.value)}
                   >
-                    {resourceOptions.map((option) => <Option key={option} value={option}>{option}</Option>)}
+                    {resourceOptions.map((option) => (
+                      <Option key={option.id} value={option.id} text={option.label}>
+                        {option.label}
+                      </Option>
+                    ))}
                   </Combobox>
                 </Field>
                 <Field label="Maker" required>

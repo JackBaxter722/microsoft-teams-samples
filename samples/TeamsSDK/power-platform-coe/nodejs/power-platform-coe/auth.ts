@@ -9,6 +9,9 @@ export type UserClaims = JWTPayload & {
 
 export class AuthenticationError extends Error {}
 
+let cachedTenantId: string | undefined;
+let cachedKeys: ReturnType<typeof createRemoteJWKSet> | undefined;
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required configuration: ${name}`);
@@ -29,14 +32,20 @@ export async function verifyUserToken(authorization?: string): Promise<UserClaim
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
   if (!token) throw new AuthenticationError("A Teams SSO bearer token is required.");
   const tenantId = required("TENANT_ID");
-  const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
-  const keys = createRemoteJWKSet(
-    new URL(`https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`)
-  );
+  const issuers = [
+    `https://login.microsoftonline.com/${tenantId}/v2.0`,
+    `https://sts.windows.net/${tenantId}/`
+  ];
+  if (cachedTenantId !== tenantId || !cachedKeys) {
+    cachedTenantId = tenantId;
+    cachedKeys = createRemoteJWKSet(
+      new URL(`https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`)
+    );
+  }
 
   try {
-    const { payload } = await jwtVerify(token, keys, {
-      issuer,
+    const { payload } = await jwtVerify(token, cachedKeys, {
+      issuer: issuers,
       audience: required("TAB_AUDIENCE"),
       clockTolerance: 5
     });
